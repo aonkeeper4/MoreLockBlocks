@@ -16,7 +16,6 @@ using Celeste.Mod.MoreLockBlocks.Imports;
 namespace Celeste.Mod.MoreLockBlocks.Entities
 {
     [Tracked]
-    [CustomEntity("MoreLockBlocks/DreamLockBlock")]
     public class DreamLockBlock : LegacyBaseLockBlock
     {
         [TrackedAs(typeof(DreamBlock))]
@@ -121,6 +120,11 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
 
             public static void Load()
             {
+                if (MoreLockBlocksModule.PatchLoaded)
+                {
+                    DreamLockBlockV2.Load();
+                    return;
+                }
                 IL.Celeste.DreamBlock.Added += DreamBlock_Added;
                 On.Celeste.DreamBlock.Activate += DreamBlock_Activate;
                 On.Celeste.DreamBlock.FastActivate += DreamBlock_FastActivate;
@@ -139,6 +143,11 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
 
             public static void Unload()
             {
+                if (MoreLockBlocksModule.PatchLoaded)
+                {
+                    DreamLockBlockV2.Unload();
+                    return;
+                }
                 IL.Celeste.DreamBlock.Added -= DreamBlock_Added;
                 On.Celeste.DreamBlock.Activate -= DreamBlock_Activate;
                 On.Celeste.DreamBlock.FastActivate -= DreamBlock_FastActivate;
