@@ -1,10 +1,11 @@
-﻿using Monocle;
+﻿#nullable enable
+
+using Monocle;
 using MonoMod.ModInterop;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 
-#nullable enable
 namespace Celeste.Mod.MoreLockBlocks.Imports
 {
     public static class ReverseHelperCallHelper
