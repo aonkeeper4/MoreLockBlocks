@@ -1,20 +1,44 @@
-using Microsoft.Xna.Framework;
-using Monocle;
-using System.Collections;
-using System.Runtime.CompilerServices;
 using Celeste.Mod.DzhakeHelper;
 using Celeste.Mod.DzhakeHelper.Entities;
+using Microsoft.Xna.Framework;
+using Monocle;
+using System;
+using System.Collections;
+using System.Runtime.CompilerServices;
 
 namespace Celeste.Mod.MoreLockBlocks.Entities
 {
-    public abstract class BaseLockBlock : Solid
+    public abstract class LegacyBaseLockBlock : Solid
     {
+        public EntityID ID => component.ID;
+
+        protected internal string overrideSpritePath => component.overrideSpritePath;
+        public Sprite Sprite => component.Sprite;
+
+        protected internal BaseLockBlockComponent.OpeningSettings openingSettings { get => component.openingSettings; set => component.openingSettings = value; }
+
+        protected internal bool opening { get => component.opening; set => component.opening = value; }
+        public bool UnlockingRegistered { get => component.UnlockingRegistered; set => component.UnlockingRegistered = value; }
+
+        protected internal bool stepMusicProgress => component.stepMusicProgress;
+
+        protected internal string unlockSfxName => component.unlockSfxName;
+        public LegacyBaseLockBlock(EntityData data, Vector2 offset, EntityID id, string defaultSpriteID = "MoreLockBlocks_generic_lock", string defaultUnlockSfx = "event:/game/03_resort/key_unlock")
+            : base(data.Position + offset, 32f, 32f, false)
+        {
+            Add(component = new BaseLockBlockComponent(this, data, offset, id, defaultSpriteID, defaultSpriteID));
+        }
+        protected readonly BaseLockBlockComponent component;
+    }
+    public class BaseLockBlockComponent : Component
+    {
+        public Solid RealEntity;
         public EntityID ID;
 
-        protected readonly string overrideSpritePath;
+        protected internal readonly string overrideSpritePath;
         public readonly Sprite Sprite;
 
-        protected struct OpeningSettings
+        public struct OpeningSettings
         {
             public bool VanillaKeys;
 
@@ -22,24 +46,42 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
             public bool DzhakeHelperKeysAll;
             public int DzhakeHelperKeyGroup;
         }
-        protected OpeningSettings openingSettings;
+        protected internal OpeningSettings openingSettings;
 
-        protected bool opening;
+        protected internal bool opening;
         public bool UnlockingRegistered;
 
-        protected readonly bool stepMusicProgress;
+        protected internal readonly bool stepMusicProgress;
 
-        protected readonly string unlockSfxName;
+        protected internal readonly string unlockSfxName;
 
-        public BaseLockBlock(EntityData data, Vector2 offset, EntityID id, string defaultSpriteID = "MoreLockBlocks_generic_lock", string defaultUnlockSfx = "event:/game/03_resort/key_unlock") : base(data.Position + offset, 32f, 32f, false)
+        public BaseLockBlockComponent(Solid This, EntityData data, Vector2 offset, EntityID id, string defaultSpriteID = "MoreLockBlocks_generic_lock", string defaultUnlockSfx = "event:/game/03_resort/key_unlock")
+            //: base(data.Position + offset, 32f, 32f, false)
+            : base(true, true)
         {
-            ID = id;
-            DisableLightsInside = false;
-            Add(new PlayerCollider(OnPlayer, new Circle(60f, 16f, 16f)));
+            RealEntity = This;
+            if (MoreLockBlocksModule.Instance.DzhakeHelperLoaded)
+            {
+                OnPlayer = default_OnPlayer_DzhakeHelperLoaded;
+                UnlockRoutine = default_UnlockRoutine_DzhakeHelperLoaded;
+                TryOpen = default_TryOpen_DzhakeHelperLoaded;
+            }
+            else
+            {
+                OnPlayer = default_OnPlayer_DzhakeHelperUnloaded;
+                UnlockRoutine = default_UnlockRoutine_DzhakeHelperUnloaded;
+                TryOpen = default_TryOpen_DzhakeHelperUnloaded;
+            }
 
-            Add(Sprite = string.IsNullOrWhiteSpace(overrideSpritePath = data.Attr("spritePath", "")) ? MoreLockBlocksGFX.SpriteBank.Create(defaultSpriteID) : BuildCustomSprite(overrideSpritePath));
+
+
+            ID = id;
+            RealEntity.DisableLightsInside = false;
+            RealEntity.Add(new PlayerCollider(OnPlayer, new Circle(60f, 16f, 16f)));
+
+            RealEntity.Add(Sprite = string.IsNullOrWhiteSpace(overrideSpritePath = data.Attr("spritePath", "")) ? MoreLockBlocksGFX.SpriteBank.Create(defaultSpriteID) : BuildCustomSprite(overrideSpritePath));
             Sprite.Play("idle");
-            Sprite.Position = new Vector2(Width / 2f, Height / 2f);
+            Sprite.Position = new Vector2(RealEntity.Width / 2f, RealEntity.Height / 2f);
 
             string dzhakeHelperKeySettings = data.Attr("dzhakeHelperKeySettings", "");
             bool _ = int.TryParse(dzhakeHelperKeySettings, out int dzhakeHelperKeyGroup);
@@ -58,7 +100,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 unlockSfxName = SFX.EventnameByHandle(unlockSfxName);
         }
 
-        protected static Sprite BuildCustomSprite(string spritePath)
+        protected internal static Sprite BuildCustomSprite(string spritePath)
         {
             /*
                 <Justify x="0.5" y="0.5" />
@@ -79,20 +121,9 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
 
         #region OnPlayer
 
-        protected void OnPlayer(Player player)
-        {
-            if (MoreLockBlocksModule.Instance.DzhakeHelperLoaded)
-            {
-                OnPlayer_DzhakeHelperLoaded(player);
-            }
-            else
-            {
-                OnPlayer_DzhakeHelperUnloaded(player);
-            }
-        }
-
+        protected internal Action<Player> OnPlayer;
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual void OnPlayer_DzhakeHelperLoaded(Player player)
+        protected internal virtual void default_OnPlayer_DzhakeHelperLoaded(Player player)
         {
             if (opening)
             {
@@ -114,7 +145,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual void OnPlayer_DzhakeHelperUnloaded(Player player)
+        protected internal virtual void default_OnPlayer_DzhakeHelperUnloaded(Player player)
         {
             if (opening)
             {
@@ -133,23 +164,12 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
         #endregion
         #region TryOpen
 
-        protected void TryOpen(Player player, Follower fol)
-        {
-            if (MoreLockBlocksModule.Instance.DzhakeHelperLoaded)
-            {
-                TryOpen_DzhakeHelperLoaded(player, fol);
-            }
-            else
-            {
-                TryOpen_DzhakeHelperUnloaded(player, fol);
-            }
-        }
-
+        protected internal Action<Player, Follower> TryOpen;
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual void TryOpen_DzhakeHelperLoaded(Player player, Follower fol)
+        protected internal virtual void default_TryOpen_DzhakeHelperLoaded(Player player, Follower fol)
         {
-            Collidable = false;
-            if (!Scene.CollideCheck<Solid>(player.Center, Center))
+            RealEntity.Collidable = false;
+            if (!RealEntity.Scene.CollideCheck<Solid>(player.Center, RealEntity.Center))
             {
                 opening = true;
                 if (fol.Entity is Key key)
@@ -160,58 +180,47 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 {
                     key2.StartedUsing = true;
                 }
-                Add(new Coroutine(UnlockRoutine(fol)));
+                RealEntity.Add(new Coroutine(UnlockRoutine(fol)));
             }
-            Collidable = true;
+            RealEntity.Collidable = true;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual void TryOpen_DzhakeHelperUnloaded(Player player, Follower fol)
+        protected internal virtual void default_TryOpen_DzhakeHelperUnloaded(Player player, Follower fol)
         {
-            Collidable = false;
-            if (!Scene.CollideCheck<Solid>(player.Center, Center))
+            RealEntity.Collidable = false;
+            if (!RealEntity.Scene.CollideCheck<Solid>(player.Center, RealEntity.Center))
             {
                 opening = true;
                 if (fol.Entity is Key key)
                 {
                     key.StartedUsing = true;
                 }
-                Add(new Coroutine(UnlockRoutine(fol)));
+                RealEntity.Add(new Coroutine(UnlockRoutine(fol)));
             }
-            Collidable = true;
+            RealEntity.Collidable = true;
         }
 
         #endregion
         #region UnlockRoutine
 
-        protected IEnumerator UnlockRoutine(Follower fol)
-        {
-            if (MoreLockBlocksModule.Instance.DzhakeHelperLoaded)
-            {
-                yield return new SwapImmediately(UnlockRoutine_DzhakeHelperLoaded(fol));
-            }
-            else
-            {
-                yield return new SwapImmediately(UnlockRoutine_DzhakeHelperUnloaded(fol));
-            }
-        }
-
+        protected internal Func<Follower, IEnumerator> UnlockRoutine;
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual IEnumerator UnlockRoutine_DzhakeHelperLoaded(Follower fol)
+        protected internal virtual IEnumerator default_UnlockRoutine_DzhakeHelperLoaded(Follower fol)
         {
-            SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, this);
+            SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, RealEntity);
             emitter.Source.DisposeOnTransition = true;
-            Level level = SceneAs<Level>();
+            Level level = RealEntity.SceneAs<Level>();
 
             Key key = fol.Entity as Key;
             CustomKey key2 = fol.Entity as CustomKey;
             if (key is not null)
             {
-                Add(new Coroutine(key.UseRoutine(Center + new Vector2(0f, 2f))));
+                RealEntity.Add(new Coroutine(key.UseRoutine(RealEntity.Center + new Vector2(0f, 2f))));
             }
             else if (key2 is not null)
             {
-                Add(new Coroutine(key2.UseRoutine(Center + new Vector2(0f, 2f))));
+                RealEntity.Add(new Coroutine(key2.UseRoutine(RealEntity.Center + new Vector2(0f, 2f))));
             }
             yield return 1.2f;
 
@@ -242,8 +251,8 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 }
             }
 
-            Tag |= Tags.TransitionUpdate;
-            Collidable = false;
+            RealEntity.Tag |= Tags.TransitionUpdate;
+            RealEntity.Collidable = false;
             emitter.Source.DisposeOnTransition = false;
             yield return Sprite.PlayRoutine("open");
 
@@ -251,18 +260,18 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
             Input.Rumble(RumbleStrength.Medium, RumbleLength.Medium);
             yield return Sprite.PlayRoutine("burst");
 
-            RemoveSelf();
+            RealEntity.RemoveSelf();
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected virtual IEnumerator UnlockRoutine_DzhakeHelperUnloaded(Follower fol)
+        protected internal virtual IEnumerator default_UnlockRoutine_DzhakeHelperUnloaded(Follower fol)
         {
-            SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, this);
+            SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, RealEntity);
             emitter.Source.DisposeOnTransition = true;
-            Level level = SceneAs<Level>();
+            Level level = RealEntity.SceneAs<Level>();
 
             Key key = fol.Entity as Key;
-            Add(new Coroutine(key.UseRoutine(Center + new Vector2(0f, 2f))));
+            RealEntity.Add(new Coroutine(key.UseRoutine(RealEntity.Center + new Vector2(0f, 2f))));
             yield return 1.2f;
 
             UnlockingRegistered = true;
@@ -278,8 +287,8 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 yield return null;
             }
 
-            Tag |= Tags.TransitionUpdate;
-            Collidable = false;
+            RealEntity.Tag |= Tags.TransitionUpdate;
+            RealEntity.Collidable = false;
             emitter.Source.DisposeOnTransition = false;
             yield return Sprite.PlayRoutine("open");
 
@@ -287,7 +296,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
             Input.Rumble(RumbleStrength.Medium, RumbleLength.Medium);
             yield return Sprite.PlayRoutine("burst");
 
-            RemoveSelf();
+            RealEntity.RemoveSelf();
         }
 
         #endregion
