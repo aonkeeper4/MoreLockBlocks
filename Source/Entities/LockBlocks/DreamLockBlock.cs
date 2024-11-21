@@ -16,9 +16,20 @@ using Celeste.Mod.MoreLockBlocks.Imports;
 namespace Celeste.Mod.MoreLockBlocks.Entities
 {
     [Tracked]
-    [CustomEntity("MoreLockBlocks/DreamLockBlock")]
-    public class DreamLockBlock : BaseLockBlock
+    [CustomEntity("MoreLockBlocks/DreamLockBlock=Load")]
+    public class DreamLockBlock : LegacyBaseLockBlock
     {
+        public static Entity Load(Level level, LevelData levelData, Vector2 offset, EntityData entityData)
+        {
+            if (MoreLockBlocksModule.PatchLoaded)
+            {
+                return new DreamLockBlockV2(entityData, offset, new EntityID(levelData.Name, entityData.ID));
+            }
+            else
+            {
+                return new DreamLockBlock(entityData, offset, new EntityID(levelData.Name, entityData.ID));
+            }
+        }
         [TrackedAs(typeof(DreamBlock))]
         internal class DreamBlockDummy : DreamBlock
         {
@@ -121,6 +132,11 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
 
             public static void Load()
             {
+                if (MoreLockBlocksModule.PatchLoaded)
+                {
+                    DreamLockBlockV2.Load();
+                    return;
+                }
                 IL.Celeste.DreamBlock.Added += DreamBlock_Added;
                 On.Celeste.DreamBlock.Activate += DreamBlock_Activate;
                 On.Celeste.DreamBlock.FastActivate += DreamBlock_FastActivate;
@@ -139,6 +155,11 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
 
             public static void Unload()
             {
+                if (MoreLockBlocksModule.PatchLoaded)
+                {
+                    DreamLockBlockV2.Unload();
+                    return;
+                }
                 IL.Celeste.DreamBlock.Added -= DreamBlock_Added;
                 On.Celeste.DreamBlock.Activate -= DreamBlock_Activate;
                 On.Celeste.DreamBlock.FastActivate -= DreamBlock_FastActivate;
@@ -257,6 +278,16 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
             SurfaceSoundIndex = 11;
             dummyBelow = data.Bool("below", false);
             dummyIgnoreInventory = data.Bool("ignoreInventory", false);
+            if (MoreLockBlocksModule.Instance.DzhakeHelperLoaded)
+            {
+                component.TryOpen = TryOpen_DzhakeHelperLoaded;
+                component.UnlockRoutine = UnlockRoutine_DzhakeHelperLoaded;
+            }
+            else
+            {
+                component.TryOpen = TryOpen_DzhakeHelperUnloaded;
+                component.UnlockRoutine = UnlockRoutine_DzhakeHelperUnloaded;
+            }
         }
 
         public override void Added(Scene scene)
@@ -274,7 +305,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
         #region TryOpen
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected override void TryOpen_DzhakeHelperLoaded(Player player, Follower fol)
+        protected void TryOpen_DzhakeHelperLoaded(Player player, Follower fol)
         {
             Collidable = dummy.Collidable = false;
             if (!Scene.CollideCheck<Solid>(player.Center, Center))
@@ -288,13 +319,13 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 {
                     key2.StartedUsing = true;
                 }
-                Add(new Coroutine(UnlockRoutine(fol)));
+                Add(new Coroutine(component.UnlockRoutine(fol)));
             }
             Collidable = dummy.Collidable = true;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected override void TryOpen_DzhakeHelperUnloaded(Player player, Follower fol)
+        protected void TryOpen_DzhakeHelperUnloaded(Player player, Follower fol)
         {
             Collidable = dummy.Collidable = false;
             if (!Scene.CollideCheck<Solid>(player.Center, Center))
@@ -304,7 +335,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
                 {
                     key.StartedUsing = true;
                 }
-                Add(new Coroutine(UnlockRoutine(fol)));
+                Add(new Coroutine(component.UnlockRoutine(fol)));
             }
             Collidable = dummy.Collidable = true;
         }
@@ -313,7 +344,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
         #region UnlockRoutine
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected override IEnumerator UnlockRoutine_DzhakeHelperLoaded(Follower fol)
+        protected IEnumerator UnlockRoutine_DzhakeHelperLoaded(Follower fol)
         {
             SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, this);
             emitter.Source.DisposeOnTransition = true;
@@ -373,7 +404,7 @@ namespace Celeste.Mod.MoreLockBlocks.Entities
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        protected override IEnumerator UnlockRoutine_DzhakeHelperUnloaded(Follower fol)
+        protected IEnumerator UnlockRoutine_DzhakeHelperUnloaded(Follower fol)
         {
             SoundEmitter emitter = SoundEmitter.Play(unlockSfxName, this);
             emitter.Source.DisposeOnTransition = true;
