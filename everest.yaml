@@ -1,0 +1,11 @@
+- Name: MoreLockBlocks
+  Version: 1.1.0
+  DLL: bin/MoreLockBlocks.dll
+  Dependencies:
+    - Name: EverestCore
+      Version: 1.5052.0
+  OptionalDependencies:
+    - Name: DzhakeHelper
+      Version: 1.4.9
+    - Name: ReverseHelper
+      Version: 1.15.1
